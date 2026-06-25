@@ -1,6 +1,6 @@
-import { Star, Heart, MessageCircle } from 'lucide-react';
+import { Star, Heart, ShoppingCart, Plus } from 'lucide-react';
 import { useState } from 'react';
-import type { Product } from '../data/products';
+import type { Product } from '../lib/supabase';
 
 interface ProductCardProps {
   product: Product;
@@ -18,7 +18,9 @@ function WhatsAppIcon({ size = 16 }: { size?: number }) {
 export default function ProductCard({ product, onAddToCart }: ProductCardProps) {
   const [wished, setWished] = useState(false);
 
-  const discount = Math.round((1 - product.price / product.originalPrice) * 100);
+  const discount = product.original_price
+    ? Math.round((1 - product.price / product.original_price) * 100)
+    : 0;
 
   const handleWhatsApp = () => {
     const message = encodeURIComponent(
@@ -40,7 +42,7 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
 
         {/* Badge */}
         {product.badge && (
-          <div className={`absolute top-3 right-3 ${product.badgeColor} text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow`}>
+          <div className={`absolute top-3 right-3 ${product.badge_color} text-white text-xs font-bold px-2.5 py-1 rounded-lg shadow`}>
             {product.badge}
           </div>
         )}
@@ -64,16 +66,25 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
           />
         </button>
 
-        {/* Hover overlay — quick WhatsApp */}
-        <div className="product-overlay absolute inset-0 bg-black/30 flex items-end p-3">
-          <button
-            onClick={handleWhatsApp}
-            className="w-full py-2.5 bg-[#25D366] hover:bg-[#1fbe5a] text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-colors"
-          >
-            <WhatsAppIcon size={15} />
-            اطلب عبر الواتساب
-          </button>
-        </div>
+        {/* Out of stock overlay */}
+        {!product.in_stock && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+            <span className="bg-white text-gray-900 px-4 py-1.5 rounded-lg font-black text-sm">نفذت الكمية</span>
+          </div>
+        )}
+
+        {/* Hover overlay — quick add to cart */}
+        {product.in_stock && (
+          <div className="product-overlay absolute inset-0 bg-black/30 flex items-end p-3">
+            <button
+              onClick={() => onAddToCart(product)}
+              className="w-full py-2.5 bg-crimson-600 hover:bg-crimson-700 text-white rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg transition-colors"
+            >
+              <Plus size={15} />
+              أضف للسلة
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Content ── */}
@@ -122,24 +133,33 @@ export default function ProductCard({ product, onAddToCart }: ProductCardProps) 
               {product.price.toLocaleString('ar-EG')}
               <span className="text-sm font-bold mr-1">ج.م</span>
             </span>
-            {product.originalPrice > product.price && (
+            {product.original_price && product.original_price > product.price && (
               <span className="text-gray-400 text-xs line-through font-medium mt-0.5">
-                {product.originalPrice.toLocaleString('ar-EG')} ج.م
+                {product.original_price.toLocaleString('ar-EG')} ج.م
               </span>
             )}
           </div>
-          {/* Sizes hint */}
           <span className="text-gray-400 text-xs font-medium">{product.sizes.length} مقاسات</span>
         </div>
 
-        {/* ── Primary WhatsApp CTA ── */}
-        <button
-          onClick={handleWhatsApp}
-          className="w-full py-3 bg-[#25D366] hover:bg-[#1fbe5a] active:scale-95 text-white rounded-xl font-black text-sm flex items-center justify-center gap-2.5 shadow-md shadow-green-200 transition-all duration-200"
-        >
-          <WhatsAppIcon size={16} />
-          اطلب عبر الواتساب
-        </button>
+        {/* ── Action buttons ── */}
+        <div className="flex gap-2">
+          <button
+            onClick={() => onAddToCart(product)}
+            disabled={!product.in_stock}
+            className="flex-1 py-3 bg-crimson-600 hover:bg-crimson-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-black text-sm flex items-center justify-center gap-2 shadow-md shadow-crimson-200 transition-all duration-200"
+          >
+            <ShoppingCart size={15} />
+            أضف للسلة
+          </button>
+          <button
+            onClick={handleWhatsApp}
+            className="px-3 py-3 bg-[#25D366] hover:bg-[#1fbe5a] active:scale-95 text-white rounded-xl font-bold text-sm flex items-center justify-center shadow-md shadow-green-200 transition-all"
+            aria-label="اطلب عبر الواتساب"
+          >
+            <WhatsAppIcon size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );

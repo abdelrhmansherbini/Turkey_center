@@ -7,11 +7,7 @@ import PromoSection from './components/PromoSection';
 import Testimonials from './components/Testimonials';
 import CartDrawer from './components/CartDrawer';
 import Footer from './components/Footer';
-import type { Product } from './data/products';
-
-export interface CartItem extends Product {
-  qty: number;
-}
+import type { Product, CartItem } from './lib/supabase';
 
 export default function App() {
   const [cartOpen, setCartOpen] = useState(false);
@@ -27,15 +23,22 @@ export default function App() {
       }
       return [...prev, { ...product, qty: 1 }];
     });
+    setCartOpen(true);
   };
 
-  const updateQty = (id: number, qty: number) => {
+  const updateQty = (id: string, qty: number) => {
+    if (qty <= 0) {
+      setCartItems((prev) => prev.filter((i) => i.id !== id));
+      return;
+    }
     setCartItems((prev) => prev.map((i) => i.id === id ? { ...i, qty } : i));
   };
 
-  const removeItem = (id: number) => {
+  const removeItem = (id: string) => {
     setCartItems((prev) => prev.filter((i) => i.id !== id));
   };
+
+  const clearCart = () => setCartItems([]);
 
   const handleCategorySelect = (cat: string) => {
     setSelectedCategory(cat);
@@ -72,6 +75,7 @@ export default function App() {
         items={cartItems}
         onUpdateQty={updateQty}
         onRemove={removeItem}
+        onClear={clearCart}
       />
     </div>
   );
