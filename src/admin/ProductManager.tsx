@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { Plus, Edit3, Trash2, X, Loader2, Save, Search } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Plus, Edit3, Trash2, X, Loader2, Save, Search, Upload, Link as LinkIcon, Image as ImageIcon } from 'lucide-react';
 import { supabase, type Product } from '../lib/supabase';
 
 const emptyForm = {
@@ -28,6 +28,9 @@ export default function ProductManager() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [imageMode, setImageMode] = useState<'url' | 'upload'>('url');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
     setLoading(true);
@@ -94,6 +97,20 @@ export default function ProductManager() {
     setSaving(false);
     setShowForm(false);
     load();
+  };
+
+  const handleUpload = async (file: File) => {
+    setUploading(true);
+    const ext = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage.from('product-images').upload(fileName, file);
+    setUploading(false);
+    if (error) {
+      alert('فشل رفع الصورة: ' + error.message);
+      return;
+    }
+    const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+    setForm((f) => ({ ...f, image: urlData.publicUrl }));
   };
 
   const handleDelete = async (id: string) => {
@@ -225,10 +242,96 @@ export default function ProductManager() {
                   <input type="number" step="0.01" value={form.original_price} onChange={(e) => setForm({ ...form, original_price: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-crimson-400 transition-all" />
                 </Field>
-                <Field label="رابط الصورة" required>
-                  <input type="url" required value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-crimson-400 transition-all" />
-                </Field>
+              </div>
+
+              {/* Image input — full width, dual mode */}
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-1.5">
+                  صورة المنتج <span className="text-crimson-500">*</span>
+                </label>
+                {/* Mode toggle */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('url')}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                      imageMode === 'url' ? 'bg-crimson-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <LinkIcon size={14} />
+                    رابط مباشر
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setImageMode('upload')}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                      imageMode === 'upload' ? 'bg-crimson-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    <Upload size={14} />
+                    رفع من الجهاز
+                  </button>
+                </div>
+
+                <div className="flex gap-4">
+                  {/* Preview */}
+                  <div className="w-24 h-24 rounded-xl border-2 border-dashed border-gray-200 flex items-center justify-center overflow-hidden flex-shrink-0 bg-gray-50">
+                    {form.image ? (
+                      <img src={form.image} alt="معاينة" className="w-full h-full object-cover" />
+                    ) : (
+                      <ImageIcon size={28} className="text-gray-300" />
+                    )}
+                  </div>
+
+                  {/* Input / upload area */}
+                  <div className="flex-1">
+                    {imageMode === 'url' ? (
+                      <input
+                        type="url"
+                        required
+                        value={form.image}
+                        onChange={(e) => setForm({ ...form, image: e.target.value })}
+                        placeholder="https://example.com/image.jpg"
+                        className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-crimson-400 transition-all"
+                      />
+                    ) : (
+                      <div
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full px-3 py-6 border-2 border-dashed border-gray-200 rounded-xl text-center cursor-pointer hover:border-crimson-300 hover:bg-crimson-50/30 transition-all"
+                      >
+                        {uploading ? (
+                          <div className="flex items-center justify-center gap-2 text-crimson-600">
+                            <Loader2 size={16} className="animate-spin" />
+                            <span className="text-sm font-bold">جاري الرفع...</span>
+                          </div>
+                        ) : form.image ? (
+                          <div className="flex items-center justify-center gap-2 text-green-600">
+                            <ImageIcon size={16} />
+                            <span className="text-sm font-bold">تم رفع الصورة — اضغط للتغيير</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1 text-gray-400">
+                            <Upload size={20} />
+                            <span className="text-sm font-medium">اضغط لاختيار صورة من جهازك</span>
+                          </div>
+                        )}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) handleUpload(file);
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="التقييم (0-5)">
                   <input type="number" step="0.1" min="0" max="5" value={form.rating} onChange={(e) => setForm({ ...form, rating: e.target.value })}
                     className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-crimson-400 transition-all" />
